@@ -1,4 +1,4 @@
-package com.example.peg_solitare
+package com.sagarbarai.peg_solitaire
 
 import io.flutter.embedding.android.FlutterActivity
 

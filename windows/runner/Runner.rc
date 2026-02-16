@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "peg_solitare" "\0"
+VALUE "CompanyName", "sagarbarai.com" "\0"
+            VALUE "FileDescription", "Peg Solitaire" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "peg_solitare" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "peg_solitare.exe" "\0"
-            VALUE "ProductName", "peg_solitare" "\0"
+            VALUE "InternalName", "peg_solitaire" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 Sagar Barai. All rights reserved." "\0"
+            VALUE "OriginalFilename", "peg_solitaire.exe" "\0"
+            VALUE "ProductName", "Peg Solitaire" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
