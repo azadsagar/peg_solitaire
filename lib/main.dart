@@ -315,6 +315,9 @@ class _HourglassGameScreenState extends State<HourglassGameScreen> {
                   selectedNode: _selectedNode,
                   validTargets: _validTargets,
                   onNodeTap: _onNodeTap,
+                  currentTurn: _currentTurn,
+                  game: _game,
+                  forcedNode: _forcedNode,
                 ),
               ),
               const SizedBox(height: 12),
@@ -384,6 +387,9 @@ class _BoardView extends StatelessWidget {
     required this.selectedNode,
     required this.validTargets,
     required this.onNodeTap,
+    required this.currentTurn,
+    required this.game,
+    required this.forcedNode,
   });
 
   final BoardDefinition board;
@@ -391,6 +397,9 @@ class _BoardView extends StatelessWidget {
   final String? selectedNode;
   final Set<String> validTargets;
   final ValueChanged<String> onNodeTap;
+  final Team? currentTurn;
+  final HourglassGame game;
+  final String? forcedNode;
 
   @override
   Widget build(BuildContext context) {
@@ -444,6 +453,13 @@ class _BoardView extends StatelessWidget {
                 board.nodesById[piece.nodeId]!.position,
               );
               const tokenSize = 32.0;
+              
+              // Check if this piece can move (only for current turn)
+              final isCurrentTeam = currentTurn == piece.team;
+              final canMove = isCurrentTeam && 
+                  (forcedNode == null || forcedNode == piece.nodeId) &&
+                  game.validMovesForNode(piece.nodeId, piece.team).isNotEmpty;
+              final isSelected = selectedNode == piece.nodeId;
 
               return AnimatedPositioned(
                 key: ValueKey(piece.id),
@@ -451,7 +467,13 @@ class _BoardView extends StatelessWidget {
                 curve: Curves.easeInOut,
                 left: center.dx - tokenSize / 2,
                 top: center.dy - tokenSize / 2,
-                child: IgnorePointer(child: _PegToken(color: piece.team.color)),
+                child: IgnorePointer(
+                  child: _PegToken(
+                    color: piece.team.color,
+                    canMove: canMove,
+                    isSelected: isSelected,
+                  ),
+                ),
               );
             }),
           ],
@@ -461,48 +483,142 @@ class _BoardView extends StatelessWidget {
   }
 }
 
-class _PegToken extends StatelessWidget {
-  const _PegToken({required this.color});
+class _PegToken extends StatefulWidget {
+  const _PegToken({
+    required this.color,
+    this.canMove = false,
+    this.isSelected = false,
+  });
 
   final Color color;
+  final bool canMove;
+  final bool isSelected;
+
+  @override
+  State<_PegToken> createState() => _PegTokenState();
+}
+
+class _PegTokenState extends State<_PegToken>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+
+    _pulseAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    if (widget.canMove && !widget.isSelected) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(_PegToken oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.canMove && !widget.isSelected) {
+      if (!_controller.isAnimating) {
+        _controller.repeat(reverse: true);
+      }
+    } else {
+      _controller.stop();
+      _controller.value = 0.0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 32,
-      height: 32,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: const Color(0xFF10233F).withValues(alpha: 0.26),
-              shape: BoxShape.circle,
-            ),
-            transform: Matrix4.translationValues(2, 2, 0),
-          ),
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFF10233F), width: 1.6),
-            ),
-            child: Center(
-              child: Container(
-                width: 5,
-                height: 5,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF10233F),
+      width: 48,
+      height: 48,
+      child: AnimatedBuilder(
+        animation: _pulseAnimation,
+        builder: (context, child) {
+          // Calculate glow properties
+          final glowOpacity = widget.isSelected
+              ? 0.8
+              : (widget.canMove ? 0.3 + (_pulseAnimation.value * 0.3) : 0.0);
+          final glowSize = widget.isSelected
+              ? 44.0
+              : (widget.canMove ? 36.0 + (_pulseAnimation.value * 10.0) : 0.0);
+          final glowColor = widget.isSelected
+              ? const Color(0xFFFFD700) // Gold for selected
+              : widget.color.withValues(alpha: 0.6); // Team color for canMove
+
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              // Pulsing glow effect
+              if (widget.canMove || widget.isSelected)
+                Container(
+                  width: glowSize,
+                  height: glowSize,
+                  decoration: BoxDecoration(
+                    color: glowColor.withValues(alpha: glowOpacity),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: glowColor.withValues(alpha: glowOpacity * 0.5),
+                        blurRadius: 8,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                ),
+              // Shadow
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10233F).withValues(alpha: 0.26),
                   shape: BoxShape.circle,
                 ),
+                transform: Matrix4.translationValues(2, 2, 0),
               ),
-            ),
-          ),
-        ],
+              // Main peg
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: widget.color,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: widget.isSelected
+                        ? const Color(0xFFFFD700)
+                        : const Color(0xFF10233F),
+                    width: widget.isSelected ? 2.5 : 1.6,
+                  ),
+                ),
+                child: Center(
+                  child: Container(
+                    width: 5,
+                    height: 5,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF10233F),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
