@@ -1,8 +1,10 @@
 import 'dart:math' as math;
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'audio_controller.dart';
 import 'board_definition.dart';
 import 'game_logic.dart';
 
@@ -40,6 +42,7 @@ class _HourglassGameScreenState extends State<HourglassGameScreen> {
   static const _animationDuration = Duration(milliseconds: 280);
   final BoardDefinition _board = BoardDefinition.hourglass();
   late final HourglassGame _game = HourglassGame(_board);
+  late final AudioController _audio = AudioController();
   final math.Random _random = math.Random();
 
   Team? _currentTurn;
@@ -49,6 +52,7 @@ class _HourglassGameScreenState extends State<HourglassGameScreen> {
   bool _animating = false;
   bool _hasGameStarted = false;
   Team? _winnerToastShownFor;
+  bool _soundEnabled = true;
 
   @override
   void initState() {
@@ -69,10 +73,7 @@ class _HourglassGameScreenState extends State<HourglassGameScreen> {
           backgroundColor: const Color(0xFFE8D5B7),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(
-              color: Color(0xFFD4AF37),
-              width: 2,
-            ),
+            side: const BorderSide(color: Color(0xFFD4AF37), width: 2),
           ),
           title: const Text(
             'Toss for First Turn',
@@ -83,10 +84,7 @@ class _HourglassGameScreenState extends State<HourglassGameScreen> {
           ),
           content: const Text(
             'Tap Toss to randomly choose which player starts.',
-            style: TextStyle(
-              color: Color(0xFF5D4037),
-              fontSize: 16,
-            ),
+            style: TextStyle(color: Color(0xFF5D4037), fontSize: 16),
           ),
           actions: [
             Container(
@@ -191,16 +189,13 @@ class _HourglassGameScreenState extends State<HourglassGameScreen> {
       return;
     }
 
+    late final MoveResolution outcome;
     setState(() {
       _animating = true;
       _hasGameStarted = true;
       _selectedNode = null;
       _validTargets = <String>{};
-      final outcome = _game.applyMove(
-        move,
-        turn,
-        restrictedNodeId: _forcedNode,
-      );
+      outcome = _game.applyMove(move, turn, restrictedNodeId: _forcedNode);
       _game.recordMove(move, turn);
 
       if (outcome.keepTurn) {
@@ -213,6 +208,12 @@ class _HourglassGameScreenState extends State<HourglassGameScreen> {
         _currentTurn = turn.opponent;
       }
     });
+
+    if (outcome.capturedPegId != null) {
+      unawaited(_audio.playCapture());
+    } else {
+      unawaited(_audio.playMove());
+    }
 
     await Future<void>.delayed(_animationDuration);
 
@@ -233,9 +234,11 @@ class _HourglassGameScreenState extends State<HourglassGameScreen> {
 
     final winner = _game.winner();
     if (winner != null && _winnerToastShownFor != winner && mounted) {
+      unawaited(_audio.playWin());
       _showWinnerToast(winner);
       _winnerToastShownFor = winner;
     } else if (_game.isDraw() && mounted) {
+      unawaited(_audio.playDraw());
       _showDrawDialog();
     }
   }
@@ -294,10 +297,7 @@ class _HourglassGameScreenState extends State<HourglassGameScreen> {
           backgroundColor: const Color(0xFFE8D5B7),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(
-              color: Color(0xFFD4AF37),
-              width: 2,
-            ),
+            side: const BorderSide(color: Color(0xFFD4AF37), width: 2),
           ),
           title: const Text(
             'Game Draw!',
@@ -310,10 +310,7 @@ class _HourglassGameScreenState extends State<HourglassGameScreen> {
           ),
           content: const Text(
             'Players have repeated the same 3 moves.\nNo winner can be determined.',
-            style: TextStyle(
-              color: Color(0xFF5D4037),
-              fontSize: 16,
-            ),
+            style: TextStyle(color: Color(0xFF5D4037), fontSize: 16),
             textAlign: TextAlign.center,
           ),
           actionsAlignment: MainAxisAlignment.center,
@@ -360,6 +357,19 @@ class _HourglassGameScreenState extends State<HourglassGameScreen> {
     return {for (final piece in _game.pieces) piece.nodeId: piece};
   }
 
+  void _toggleSound() {
+    setState(() {
+      _soundEnabled = !_soundEnabled;
+      _audio.toggleMuted();
+    });
+  }
+
+  @override
+  void dispose() {
+    _audio.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final winner = _game.winner();
@@ -378,51 +388,43 @@ class _HourglassGameScreenState extends State<HourglassGameScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: SizedBox(
-          width: double.infinity,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF1E3A5F), Color(0xFF2E4A6F), Color(0xFF1E3A5F)],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
+        title: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1E3A5F), Color(0xFF2E4A6F), Color(0xFF1E3A5F)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 6,
+                offset: const Offset(0, 3),
               ),
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  blurRadius: 6,
-                  offset: const Offset(0, 3),
+            ],
+            border: Border.all(color: const Color(0xFFD4AF37), width: 2.5),
+          ),
+          child: const Text(
+            'Peg Solitaire',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              letterSpacing: 2.0,
+              shadows: [
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 3,
+                  offset: Offset(2, 2),
+                ),
+                Shadow(
+                  color: Color(0xFFD4AF37),
+                  blurRadius: 1,
+                  offset: Offset(0, 0),
                 ),
               ],
-              border: Border.all(
-                color: const Color(0xFFD4AF37),
-                width: 2.5,
-              ),
-            ),
-            child: const Center(
-              child: Text(
-                'Peg Solitaire',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  letterSpacing: 2.0,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black,
-                      blurRadius: 3,
-                      offset: Offset(2, 2),
-                    ),
-                    Shadow(
-                      color: Color(0xFFD4AF37),
-                      blurRadius: 1,
-                      offset: Offset(0, 0),
-                    ),
-                  ],
-                ),
-              ),
             ),
           ),
         ),
@@ -430,6 +432,25 @@ class _HourglassGameScreenState extends State<HourglassGameScreen> {
         elevation: 0,
         backgroundColor: Colors.transparent,
         toolbarHeight: 70,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _soundEnabled ? Icons.volume_up : Icons.volume_off,
+                  color: const Color(0xFF5D4037),
+                ),
+                Switch(
+                  value: _soundEnabled,
+                  onChanged: (_) => _toggleSound(),
+                  activeThumbColor: const Color(0xFF2E7D32),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
       body: Container(
         decoration: BoxDecoration(
@@ -451,151 +472,154 @@ class _HourglassGameScreenState extends State<HourglassGameScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _ScorePill(
-                    label: 'Green',
-                    color: Team.green.color,
-                    score: _game.scoreFor(Team.green),
-                    remaining: _game.greenCount,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _ScorePill(
+                      label: 'Green',
+                      color: Team.green.color,
+                      score: _game.scoreFor(Team.green),
+                      remaining: _game.greenCount,
+                    ),
+                    _ScorePill(
+                      label: 'Red',
+                      color: Team.red.color,
+                      score: _game.scoreFor(Team.red),
+                      remaining: _game.redCount,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  statusText,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: turnColor,
                   ),
-                  _ScorePill(
-                    label: 'Red',
-                    color: Team.red.color,
-                    score: _game.scoreFor(Team.red),
-                    remaining: _game.redCount,
+                ),
+                if (winner == null && _currentTurn == null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Use Toss to start',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                statusText,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: turnColor,
+                const SizedBox(height: 12),
+                Expanded(
+                  child: _BoardView(
+                    board: _board,
+                    pieces: _game.pieces,
+                    selectedNode: _selectedNode,
+                    validTargets: _validTargets,
+                    onNodeTap: _onNodeTap,
+                    currentTurn: _currentTurn,
+                    game: _game,
+                    forcedNode: _forcedNode,
+                  ),
                 ),
-              ),
-              if (winner == null && _currentTurn == null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  'Use Toss to start',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium,
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF8B6F47), Color(0xFF6B5344)],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.3),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                          border: Border.all(
+                            color: const Color(0xFFD4AF37),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: ElevatedButton.icon(
+                          onPressed: (_animating || _hasGameStarted)
+                              ? null
+                              : _tossForFirstTurn,
+                          icon: const Icon(
+                            Icons.casino_outlined,
+                            color: Colors.white,
+                          ),
+                          label: const Text(
+                            'Toss',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF2E7D32), Color(0xFF1B5E20)],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.3),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                          border: Border.all(
+                            color: const Color(0xFF81C784),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: ElevatedButton.icon(
+                          onPressed: _resetGame,
+                          icon: const Icon(Icons.refresh, color: Colors.white),
+                          label: const Text(
+                            'Reset Board',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
-              const SizedBox(height: 12),
-              Expanded(
-                child: _BoardView(
-                  board: _board,
-                  pieces: _game.pieces,
-                  selectedNode: _selectedNode,
-                  validTargets: _validTargets,
-                  onNodeTap: _onNodeTap,
-                  currentTurn: _currentTurn,
-                  game: _game,
-                  forcedNode: _forcedNode,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF8B6F47), Color(0xFF6B5344)],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.3),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                        border: Border.all(
-                          color: const Color(0xFFD4AF37),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: ElevatedButton.icon(
-                        onPressed: (_animating || _hasGameStarted)
-                            ? null
-                            : _tossForFirstTurn,
-                        icon: const Icon(Icons.casino_outlined, color: Colors.white),
-                        label: const Text(
-                          'Toss',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF2E7D32), Color(0xFF1B5E20)],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.3),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                        border: Border.all(
-                          color: const Color(0xFF81C784),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: ElevatedButton.icon(
-                        onPressed: _resetGame,
-                        icon: const Icon(Icons.refresh, color: Colors.white),
-                        label: const Text(
-                          'Reset Board',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -738,10 +762,11 @@ class _BoardView extends StatelessWidget {
               );
               // _PegToken widget size is 56x56 (includes glow effect padding)
               const widgetSize = 56.0;
-              
+
               // Check if this piece can move (only for current turn)
               final isCurrentTeam = currentTurn == piece.team;
-              final canMove = isCurrentTeam && 
+              final canMove =
+                  isCurrentTeam &&
                   (forcedNode == null || forcedNode == piece.nodeId) &&
                   game.validMovesForNode(piece.nodeId, piece.team).isNotEmpty;
               final isSelected = selectedNode == piece.nodeId;
@@ -796,12 +821,10 @@ class _PegTokenState extends State<_PegToken>
       vsync: this,
     );
 
-    _pulseAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeInOut,
-      ),
-    );
+    _pulseAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
 
     if (widget.canMove && !widget.isSelected) {
       _controller.repeat(reverse: true);
@@ -830,19 +853,35 @@ class _PegTokenState extends State<_PegToken>
   @override
   Widget build(BuildContext context) {
     const pegSize = 36.0;
-    
+
     // Define marble colors based on team
     final isGreen = widget.color == Team.green.color;
-    
+
     // Marble color schemes
     final topGradientColors = isGreen
-        ? [const Color(0xFF86EFAC), const Color(0xFF22C55E), const Color(0xFF14532D)]
-        : [const Color(0xFFFCA5A5), const Color(0xFFEF4444), const Color(0xFF7F1D1D)];
-    
+        ? [
+            const Color(0xFF86EFAC),
+            const Color(0xFF22C55E),
+            const Color(0xFF14532D),
+          ]
+        : [
+            const Color(0xFFFCA5A5),
+            const Color(0xFFEF4444),
+            const Color(0xFF7F1D1D),
+          ];
+
     final bodyGradientColors = isGreen
-        ? [const Color(0xFF14532D), const Color(0xFF166534), const Color(0xFF22C55E)]
-        : [const Color(0xFF7F1D1D), const Color(0xFF991B1B), const Color(0xFFEF4444)];
-    
+        ? [
+            const Color(0xFF14532D),
+            const Color(0xFF166534),
+            const Color(0xFF22C55E),
+          ]
+        : [
+            const Color(0xFF7F1D1D),
+            const Color(0xFF991B1B),
+            const Color(0xFFEF4444),
+          ];
+
     final shadowColor = isGreen
         ? const Color(0xFF052E16).withValues(alpha: 0.4)
         : const Color(0xFF450A0A).withValues(alpha: 0.4);
@@ -884,7 +923,7 @@ class _PegTokenState extends State<_PegToken>
                     ],
                   ),
                 ),
-              
+
               // Layer 1: Pronounced base shadow (elevation) - centered
               Container(
                 width: pegSize,
@@ -907,7 +946,7 @@ class _PegTokenState extends State<_PegToken>
                   ],
                 ),
               ),
-              
+
               // Layer 2: Cylinder body (vertical gradient)
               Container(
                 width: pegSize,
@@ -922,7 +961,7 @@ class _PegTokenState extends State<_PegToken>
                   ),
                 ),
               ),
-              
+
               // Layer 3: Cylinder rim/edge (darker ring)
               Container(
                 width: pegSize - 2,
@@ -930,12 +969,14 @@ class _PegTokenState extends State<_PegToken>
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: isGreen ? const Color(0xFF14532D) : const Color(0xFF7F1D1D),
+                    color: isGreen
+                        ? const Color(0xFF14532D)
+                        : const Color(0xFF7F1D1D),
                     width: 1.5,
                   ),
                 ),
               ),
-              
+
               // Layer 4: Marble top surface (radial gradient)
               Container(
                 width: pegSize - 4,
@@ -951,7 +992,9 @@ class _PegTokenState extends State<_PegToken>
                   border: Border.all(
                     color: widget.isSelected
                         ? const Color(0xFFFFD700)
-                        : (isGreen ? const Color(0xFF166534) : const Color(0xFF991B1B)),
+                        : (isGreen
+                              ? const Color(0xFF166534)
+                              : const Color(0xFF991B1B)),
                     width: widget.isSelected ? 3.0 : 2.0,
                   ),
                   boxShadow: [
@@ -964,7 +1007,7 @@ class _PegTokenState extends State<_PegToken>
                   ],
                 ),
               ),
-              
+
               // Layer 5: Glossy highlight (marble shine) - centered on peg
               Positioned(
                 top: 12,
@@ -985,7 +1028,7 @@ class _PegTokenState extends State<_PegToken>
                   ),
                 ),
               ),
-              
+
               // Secondary smaller highlight - centered on peg
               Positioned(
                 top: 16,
