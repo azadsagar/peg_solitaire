@@ -1,6 +1,6 @@
-# peg_solitare
+# Peg Solitaire
 
-A new Flutter project.
+A classic Peg Solitaire game built with Flutter. Features beautiful graphics and intuitive gameplay.
 
 ## Getting Started
 
