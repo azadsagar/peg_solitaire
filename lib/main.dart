@@ -19,10 +19,10 @@ class PegSolitaireApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Hourglass Peg Solitaire',
+      title: 'Peg Solitaire',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1E3A5F)),
-        scaffoldBackgroundColor: const Color(0xFFF4F7FB),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF8B6F47)),
+        scaffoldBackgroundColor: const Color(0xFFE8D5B7),
       ),
       home: const HourglassGameScreen(),
     );
@@ -66,18 +66,60 @@ class _HourglassGameScreenState extends State<HourglassGameScreen> {
       barrierDismissible: false,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Toss for First Turn'),
+          backgroundColor: const Color(0xFFE8D5B7),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(
+              color: Color(0xFFD4AF37),
+              width: 2,
+            ),
+          ),
+          title: const Text(
+            'Toss for First Turn',
+            style: TextStyle(
+              color: Color(0xFF5D4037),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           content: const Text(
             'Tap Toss to randomly choose which player starts.',
+            style: TextStyle(
+              color: Color(0xFF5D4037),
+              fontSize: 16,
+            ),
           ),
           actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(
-                  context,
-                ).pop(_random.nextBool() ? Team.green : Team.red);
-              },
-              child: const Text('Toss'),
+            Container(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF8B6F47), Color(0xFF6B5344)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: TextButton(
+                onPressed: () {
+                  Navigator.of(
+                    context,
+                  ).pop(_random.nextBool() ? Team.green : Team.red);
+                },
+                child: const Text(
+                  'Toss',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
             ),
           ],
         );
@@ -262,15 +304,79 @@ class _HourglassGameScreenState extends State<HourglassGameScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Hourglass Peg Solitaire'),
+        title: SizedBox(
+          width: double.infinity,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF1E3A5F), Color(0xFF2E4A6F), Color(0xFF1E3A5F)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 6,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+              border: Border.all(
+                color: const Color(0xFFD4AF37),
+                width: 2.5,
+              ),
+            ),
+            child: const Center(
+              child: Text(
+                'Peg Solitaire',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: 2.0,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black,
+                      blurRadius: 3,
+                      offset: Offset(2, 2),
+                    ),
+                    Shadow(
+                      color: Color(0xFFD4AF37),
+                      blurRadius: 1,
+                      offset: Offset(0, 0),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
         centerTitle: true,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        toolbarHeight: 70,
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              const Color(0xFFF5E6D3),
+              const Color(0xFFE8D5B7),
+              const Color(0xFFD4C4A8),
+              const Color(0xFFC9B896),
+            ],
+            stops: const [0.0, 0.3, 0.7, 1.0],
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
@@ -297,12 +403,10 @@ class _HourglassGameScreenState extends State<HourglassGameScreen> {
                   color: turnColor,
                 ),
               ),
-              if (winner == null) ...[
+              if (winner == null && _currentTurn == null) ...[
                 const SizedBox(height: 4),
                 Text(
-                  _currentTurn == null
-                      ? 'Use Toss to start'
-                      : 'Current turn: ${_currentTurn!.label}',
+                  'Use Toss to start',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
@@ -324,20 +428,92 @@ class _HourglassGameScreenState extends State<HourglassGameScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: (_animating || _hasGameStarted)
-                          ? null
-                          : _tossForFirstTurn,
-                      icon: const Icon(Icons.casino_outlined),
-                      label: const Text('Toss'),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF8B6F47), Color(0xFF6B5344)],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.3),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                        border: Border.all(
+                          color: const Color(0xFFD4AF37),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: ElevatedButton.icon(
+                        onPressed: (_animating || _hasGameStarted)
+                            ? null
+                            : _tossForFirstTurn,
+                        icon: const Icon(Icons.casino_outlined, color: Colors.white),
+                        label: const Text(
+                          'Toss',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: FilledButton.icon(
-                      onPressed: _resetGame,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Reset Board'),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF2E7D32), Color(0xFF1B5E20)],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.3),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                        border: Border.all(
+                          color: const Color(0xFF81C784),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: ElevatedButton.icon(
+                        onPressed: _resetGame,
+                        icon: const Icon(Icons.refresh, color: Colors.white),
+                        label: const Text(
+                          'Reset Board',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -345,6 +521,7 @@ class _HourglassGameScreenState extends State<HourglassGameScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -366,15 +543,33 @@ class _ScorePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF8B6F47).withValues(alpha: 0.9),
+            const Color(0xFF6B5344).withValues(alpha: 0.9),
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.45), width: 1.2),
+        border: Border.all(color: const Color(0xFFD4AF37), width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Text(
         '$label  Score: $score  Left: $remaining',
-        style: TextStyle(color: color, fontWeight: FontWeight.w700),
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w700,
+          fontSize: 14,
+        ),
       ),
     );
   }
@@ -433,16 +628,31 @@ class _BoardView extends StatelessWidget {
                     width: radius * 2,
                     height: radius * 2,
                     decoration: BoxDecoration(
-                      color: isValidTarget
-                          ? const Color(0xFFB9D8FF)
-                          : const Color(0xFFE9EDF3),
+                      gradient: RadialGradient(
+                        colors: isValidTarget
+                            ? [
+                                const Color(0xFFD4AF37).withValues(alpha: 0.6),
+                                const Color(0xFFD4AF37).withValues(alpha: 0.3),
+                              ]
+                            : [
+                                const Color(0xFF8B6F47).withValues(alpha: 0.7),
+                                const Color(0xFF6B5344).withValues(alpha: 0.7),
+                              ],
+                      ),
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: isSelected
-                            ? const Color(0xFF2563EB)
-                            : const Color(0xFF51627D),
+                            ? const Color(0xFFFFD700)
+                            : const Color(0xFFD4AF37),
                         width: isSelected ? 3 : 2,
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          blurRadius: 4,
+                          spreadRadius: 1,
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -452,7 +662,8 @@ class _BoardView extends StatelessWidget {
               final center = projector.toCanvas(
                 board.nodesById[piece.nodeId]!.position,
               );
-              const tokenSize = 32.0;
+              // _PegToken widget size is 56x56 (includes glow effect padding)
+              const widgetSize = 56.0;
               
               // Check if this piece can move (only for current turn)
               final isCurrentTeam = currentTurn == piece.team;
@@ -465,8 +676,8 @@ class _BoardView extends StatelessWidget {
                 key: ValueKey(piece.id),
                 duration: const Duration(milliseconds: 280),
                 curve: Curves.easeInOut,
-                left: center.dx - tokenSize / 2,
-                top: center.dy - tokenSize / 2,
+                left: center.dx - widgetSize / 2,
+                top: center.dy - widgetSize / 2,
                 child: IgnorePointer(
                   child: _PegToken(
                     color: piece.team.color,
@@ -544,9 +755,27 @@ class _PegTokenState extends State<_PegToken>
 
   @override
   Widget build(BuildContext context) {
+    const pegSize = 36.0;
+    
+    // Define marble colors based on team
+    final isGreen = widget.color == Team.green.color;
+    
+    // Marble color schemes
+    final topGradientColors = isGreen
+        ? [const Color(0xFF86EFAC), const Color(0xFF22C55E), const Color(0xFF14532D)]
+        : [const Color(0xFFFCA5A5), const Color(0xFFEF4444), const Color(0xFF7F1D1D)];
+    
+    final bodyGradientColors = isGreen
+        ? [const Color(0xFF14532D), const Color(0xFF166534), const Color(0xFF22C55E)]
+        : [const Color(0xFF7F1D1D), const Color(0xFF991B1B), const Color(0xFFEF4444)];
+    
+    final shadowColor = isGreen
+        ? const Color(0xFF052E16).withValues(alpha: 0.4)
+        : const Color(0xFF450A0A).withValues(alpha: 0.4);
+
     return SizedBox(
-      width: 48,
-      height: 48,
+      width: 56,
+      height: 56,
       child: AnimatedBuilder(
         animation: _pulseAnimation,
         builder: (context, child) {
@@ -555,8 +784,8 @@ class _PegTokenState extends State<_PegToken>
               ? 0.8
               : (widget.canMove ? 0.3 + (_pulseAnimation.value * 0.3) : 0.0);
           final glowSize = widget.isSelected
-              ? 44.0
-              : (widget.canMove ? 36.0 + (_pulseAnimation.value * 10.0) : 0.0);
+              ? 52.0
+              : (widget.canMove ? 44.0 + (_pulseAnimation.value * 12.0) : 0.0);
           final glowColor = widget.isSelected
               ? const Color(0xFFFFD700) // Gold for selected
               : widget.color.withValues(alpha: 0.6); // Team color for canMove
@@ -581,38 +810,118 @@ class _PegTokenState extends State<_PegToken>
                     ],
                   ),
                 ),
-              // Shadow
+              
+              // Layer 1: Pronounced base shadow (elevation) - centered
               Container(
-                width: 30,
-                height: 30,
+                width: pegSize,
+                height: pegSize,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF10233F).withValues(alpha: 0.26),
                   shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: shadowColor.withValues(alpha: 0.5),
+                      blurRadius: 10,
+                      spreadRadius: 2,
+                      offset: const Offset(3, 5),
+                    ),
+                    BoxShadow(
+                      color: shadowColor.withValues(alpha: 0.3),
+                      blurRadius: 15,
+                      spreadRadius: 5,
+                      offset: const Offset(2, 4),
+                    ),
+                  ],
                 ),
-                transform: Matrix4.translationValues(2, 2, 0),
               ),
-              // Main peg
+              
+              // Layer 2: Cylinder body (vertical gradient)
               Container(
-                width: 30,
-                height: 30,
+                width: pegSize,
+                height: pegSize,
                 decoration: BoxDecoration(
-                  color: widget.color,
                   shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: bodyGradientColors,
+                    stops: const [0.0, 0.5, 1.0],
+                  ),
+                ),
+              ),
+              
+              // Layer 3: Cylinder rim/edge (darker ring)
+              Container(
+                width: pegSize - 2,
+                height: pegSize - 2,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isGreen ? const Color(0xFF14532D) : const Color(0xFF7F1D1D),
+                    width: 1.5,
+                  ),
+                ),
+              ),
+              
+              // Layer 4: Marble top surface (radial gradient)
+              Container(
+                width: pegSize - 4,
+                height: pegSize - 4,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    center: Alignment.topLeft,
+                    radius: 0.8,
+                    colors: topGradientColors,
+                    stops: const [0.0, 0.6, 1.0],
+                  ),
                   border: Border.all(
                     color: widget.isSelected
                         ? const Color(0xFFFFD700)
-                        : const Color(0xFF10233F),
-                    width: widget.isSelected ? 2.5 : 1.6,
+                        : (isGreen ? const Color(0xFF166534) : const Color(0xFF991B1B)),
+                    width: widget.isSelected ? 3.0 : 2.0,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 3,
+                      spreadRadius: 0,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Layer 5: Glossy highlight (marble shine) - centered on peg
+              Positioned(
+                top: 12,
+                left: 12,
+                child: Container(
+                  width: 14,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(7),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.85),
+                        Colors.white.withValues(alpha: 0.2),
+                      ],
+                    ),
                   ),
                 ),
-                child: Center(
-                  child: Container(
-                    width: 5,
-                    height: 5,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF10233F),
-                      shape: BoxShape.circle,
-                    ),
+              ),
+              
+              // Secondary smaller highlight - centered on peg
+              Positioned(
+                top: 16,
+                left: 15,
+                child: Container(
+                  width: 6,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(3),
+                    color: Colors.white.withValues(alpha: 0.95),
                   ),
                 ),
               ),
@@ -633,7 +942,7 @@ class _BoardPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF182B4B)
+      ..color = const Color(0xFF5D4037)
       ..strokeWidth = 4
       ..strokeCap = StrokeCap.round;
 
