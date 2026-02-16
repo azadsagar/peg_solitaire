@@ -35,6 +35,39 @@ class GameMove {
   bool get isCapture => over != null;
 }
 
+class MoveRecord {
+  const MoveRecord({
+    required this.from,
+    required this.to,
+    required this.over,
+    required this.team,
+  });
+
+  final String from;
+  final String to;
+  final String? over;
+  final Team team;
+
+  @override
+  String toString() => '${team.label}: $from→$to${over != null ? '(capture:$over)' : ''}';
+
+  bool matchesSequence(List<MoveRecord> sequence) {
+    if (sequence.length != 3) return false;
+    return from == sequence[0].from &&
+        to == sequence[0].to &&
+        over == sequence[0].over &&
+        team == sequence[0].team &&
+        from == sequence[1].from &&
+        to == sequence[1].to &&
+        over == sequence[1].over &&
+        team == sequence[1].team &&
+        from == sequence[2].from &&
+        to == sequence[2].to &&
+        over == sequence[2].over &&
+        team == sequence[2].team;
+  }
+}
+
 class MoveResolution {
   const MoveResolution({
     required this.movedPegId,
@@ -57,8 +90,10 @@ class HourglassGame {
   final Map<String, List<String>> _adjacentByFrom;
   final Map<String, List<JumpConnection>> _jumpByFrom;
   List<PegPiece> _pieces;
+  final List<MoveRecord> _moveHistory = [];
 
   List<PegPiece> get pieces => List.unmodifiable(_pieces);
+  List<MoveRecord> get moveHistory => List.unmodifiable(_moveHistory);
 
   int get greenCount =>
       _pieces.where((piece) => piece.team == Team.green).length;
@@ -81,6 +116,59 @@ class HourglassGame {
       return Team.red;
     }
     return null;
+  }
+
+  bool hasAnyValidMoves(Team team) {
+    return validMovesForTurn(team).isNotEmpty;
+  }
+
+  bool checkMoveRepetitionDraw() {
+    if (_moveHistory.length < 6) return false;
+    
+    final lastThree = <MoveRecord>[];
+    lastThree.add(_moveHistory[_moveHistory.length - 3]);
+    lastThree.add(_moveHistory[_moveHistory.length - 2]);
+    lastThree.add(_moveHistory[_moveHistory.length - 1]);
+    
+    for (int i = 0; i <= _moveHistory.length - 6; i++) {
+      final sequence = <MoveRecord>[];
+      sequence.add(_moveHistory[i]);
+      sequence.add(_moveHistory[i + 1]);
+      sequence.add(_moveHistory[i + 2]);
+      
+      if (lastThree[0].from == sequence[0].from &&
+          lastThree[0].to == sequence[0].to &&
+          lastThree[0].over == sequence[0].over &&
+          lastThree[0].team == sequence[0].team &&
+          lastThree[1].from == sequence[1].from &&
+          lastThree[1].to == sequence[1].to &&
+          lastThree[1].over == sequence[1].over &&
+          lastThree[1].team == sequence[1].team &&
+          lastThree[2].from == sequence[2].from &&
+          lastThree[2].to == sequence[2].to &&
+          lastThree[2].over == sequence[2].over &&
+          lastThree[2].team == sequence[2].team) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool isDraw() {
+    if (hasWinner()) return false;
+    if (!hasAnyValidMoves(Team.green) || !hasAnyValidMoves(Team.red)) {
+      return true;
+    }
+    return checkMoveRepetitionDraw();
+  }
+
+  void recordMove(GameMove move, Team team) {
+    _moveHistory.add(MoveRecord(
+      from: move.from,
+      to: move.to,
+      over: move.over,
+      team: team,
+    ));
   }
 
   List<GameMove> validMovesForNode(String nodeId, Team team) {
@@ -177,6 +265,7 @@ class HourglassGame {
 
   void reset() {
     _pieces = _buildStartingPieces(board);
+    _moveHistory.clear();
   }
 
   Map<String, PegPiece> _nodeToPiece() {

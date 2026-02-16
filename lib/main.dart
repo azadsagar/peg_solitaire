@@ -201,6 +201,7 @@ class _HourglassGameScreenState extends State<HourglassGameScreen> {
         turn,
         restrictedNodeId: _forcedNode,
       );
+      _game.recordMove(move, turn);
 
       if (outcome.keepTurn) {
         final movedNode = _game.pieces
@@ -234,6 +235,8 @@ class _HourglassGameScreenState extends State<HourglassGameScreen> {
     if (winner != null && _winnerToastShownFor != winner && mounted) {
       _showWinnerToast(winner);
       _winnerToastShownFor = winner;
+    } else if (_game.isDraw() && mounted) {
+      _showDrawDialog();
     }
   }
 
@@ -280,6 +283,77 @@ class _HourglassGameScreenState extends State<HourglassGameScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _showDrawDialog() async {
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFFE8D5B7),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(
+              color: Color(0xFFD4AF37),
+              width: 2,
+            ),
+          ),
+          title: const Text(
+            'Game Draw!',
+            style: TextStyle(
+              color: Color(0xFF5D4037),
+              fontWeight: FontWeight.bold,
+              fontSize: 24,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          content: const Text(
+            'Players have repeated the same 3 moves.\nNo winner can be determined.',
+            style: TextStyle(
+              color: Color(0xFF5D4037),
+              fontSize: 16,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            Container(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF8B6F47), Color(0xFF6B5344)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop('newGame'),
+                child: const Text(
+                  'New Game',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result == 'newGame' && mounted) {
+      _resetGame();
+    }
   }
 
   Map<String, PegPiece> _pieceByNode() {
